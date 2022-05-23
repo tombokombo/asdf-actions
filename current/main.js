@@ -126,7 +126,7 @@ var require_file_command = __commonJS((exports2) => {
     return result;
   };
   Object.defineProperty(exports2, "__esModule", {value: true});
-  var fs2 = __importStar(require("fs"));
+  var fs3 = __importStar(require("fs"));
   var os2 = __importStar(require("os"));
   var utils_1 = require_utils();
   function issueCommand(command, message) {
@@ -134,10 +134,10 @@ var require_file_command = __commonJS((exports2) => {
     if (!filePath) {
       throw new Error(`Unable to find environment variable for file command ${command}`);
     }
-    if (!fs2.existsSync(filePath)) {
+    if (!fs3.existsSync(filePath)) {
       throw new Error(`Missing file at path: ${filePath}`);
     }
-    fs2.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os2.EOL}`, {
+    fs3.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os2.EOL}`, {
       encoding: "utf8"
     });
   }
@@ -232,10 +232,10 @@ var require_core = __commonJS((exports2) => {
     return val.trim();
   }
   exports2.getInput = getInput4;
-  function setOutput(name, value) {
+  function setOutput2(name, value) {
     command_1.issueCommand("set-output", {name}, value);
   }
-  exports2.setOutput = setOutput;
+  exports2.setOutput = setOutput2;
   function setCommandEcho(enabled) {
     command_1.issue("echo", enabled ? "on" : "off");
   }
@@ -329,9 +329,9 @@ var require_io_util = __commonJS((exports2) => {
   var _a;
   Object.defineProperty(exports2, "__esModule", {value: true});
   var assert_1 = require("assert");
-  var fs2 = require("fs");
+  var fs3 = require("fs");
   var path2 = require("path");
-  _a = fs2.promises, exports2.chmod = _a.chmod, exports2.copyFile = _a.copyFile, exports2.lstat = _a.lstat, exports2.mkdir = _a.mkdir, exports2.readdir = _a.readdir, exports2.readlink = _a.readlink, exports2.rename = _a.rename, exports2.rmdir = _a.rmdir, exports2.stat = _a.stat, exports2.symlink = _a.symlink, exports2.unlink = _a.unlink;
+  _a = fs3.promises, exports2.chmod = _a.chmod, exports2.copyFile = _a.copyFile, exports2.lstat = _a.lstat, exports2.mkdir = _a.mkdir, exports2.readdir = _a.readdir, exports2.readlink = _a.readlink, exports2.rename = _a.rename, exports2.rmdir = _a.rmdir, exports2.stat = _a.stat, exports2.symlink = _a.symlink, exports2.unlink = _a.unlink;
   exports2.IS_WINDOWS = process.platform === "win32";
   function exists(fsPath) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -1211,12 +1211,13 @@ var require_exec = __commonJS((exports2) => {
   exports2.exec = exec7;
 });
 
-// lib/install/main.ts
+// lib/current/main.ts
 var core4 = __toModule(require_core());
 
-// lib/install/index.ts
+// lib/current/index.ts
 var core3 = __toModule(require_core());
 var exec5 = __toModule(require_exec());
+var fs2 = __toModule(require("fs"));
 
 // lib/plugins-add/index.ts
 var core2 = __toModule(require_core());
@@ -1301,21 +1302,55 @@ async function pluginsAdd() {
   }
 }
 
-// lib/install/index.ts
-async function toolsInstall() {
+// lib/current/index.ts
+async function toolsCurrent() {
   await pluginsAdd();
-  const before = core3.getInput("before_install", {required: false});
   const directory = core3.getInput("directory", {required: false});
-  if (before) {
-    await exec5.exec("bash", ["-c", before]);
+  let saveTo = core3.getInput("save_to", {required: false});
+  const save = core3.getInput("save", {required: false});
+  const options = {};
+  let stdOut = "";
+  options.listeners = {
+    stdout: (data) => {
+      stdOut += data.toString();
+    },
+    stderr: (data) => {
+      stdOut += data.toString();
+    }
+  };
+  options.cwd = directory;
+  await exec5.exec("asdf", ["current"], options);
+  core3.setOutput("_raw", stdOut);
+  const toolsVersMap = new Map();
+  for (const line of stdOut.split(/\r?\n/)) {
+    if (line.includes("No version set") || line.length == 0) {
+      continue;
+    }
+    const key = line.split(/\s+/)[0];
+    toolsVersMap.set(key, line.split(/\s+/)[1].trim());
   }
-  await exec5.exec("asdf", ["install"], {cwd: directory});
+  let rawOut = "";
+  for (const [tool, version] of toolsVersMap) {
+    core3.setOutput(tool, version);
+    rawOut += `${tool} ${version}
+`;
+  }
+  core3.setOutput("_parsed", rawOut);
+  if (save === "no") {
+    return;
+  }
+  if (directory !== saveTo) {
+    saveTo = !saveTo.endsWith("/") ? `${saveTo}/` : saveTo;
+    await fs2.promises.writeFile(`${saveTo}.tool-versions`, rawOut, {
+      encoding: "utf8"
+    });
+  }
 }
 
-// lib/install/main.ts
+// lib/current/main.ts
 (async () => {
   try {
-    await toolsInstall();
+    await toolsCurrent();
   } catch (err) {
     core4.setFailed(`Action failed with error ${err}`);
   }
