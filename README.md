@@ -35,7 +35,7 @@ steps:
   # Reference a semver version of a release (not recommended)
   - uses: asdf-vm/actions/plugin-test@v1.0.1
   # Reference a branch (most dangerous)
-  - uses: asdf-vm/actions/plugin-testmaster
+  - uses: asdf-vm/actions/plugin-test@master
 ```
 
 ### Example workflow
@@ -45,9 +45,15 @@ name: Main workflow
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
     paths-ignore:
       - "**.md"
   push:
+    branches:
+      - main
     paths-ignore:
       - "**.md"
   schedule:
@@ -75,7 +81,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Run ShellCheck
         run: shellcheck bin/*
@@ -85,7 +91,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install shfmt
         run: brew install shfmt
@@ -127,7 +133,7 @@ jobs:
 
 ### Main actions
 
-These two actions are probaly the most useful:
+These two actions are probably the most useful:
 
 - `asdf-vm/actions/install` - Install your `.tool-versions` plugins and tools.
 
